@@ -9,9 +9,12 @@ namespace RazerHelper.Core.Hardware;
 /// </summary>
 internal static class RazerLaptopModels
 {
+    // Fan speeds (MinFanRpm, and the default 5000 maximum) come from the per-model
+    // table in razer-control-win's laptops.json, where it has the model. The 2024 and
+    // 2025 Blade 16 are not in it; they use the Blade 16 (2023) figures, a guess.
     public static readonly IReadOnlyList<RazerLaptopModel> Known =
     [
-        new RazerLaptopModel(0x029F, "Razer Blade 16 (2023)", Verified: true),
+        new RazerLaptopModel(0x029F, "Razer Blade 16 (2023)", Verified: true, MinFanRpm: 2200),
 
         // Community-reported product ids, not verified on this app: the
         // command set is the one documented for the Blade 16 (2023) above,
@@ -19,12 +22,17 @@ internal static class RazerLaptopModels
         // firmware does not implement fails cleanly rather than guessing.
         // From sqmagellan/razer-ctl's published device-support table.
         new RazerLaptopModel(0x028A, "Razer Blade 15 (2022)", Verified: false),
-        new RazerLaptopModel(0x029D, "Razer Blade 14 (2023) Mercury", Verified: false),
-        new RazerLaptopModel(0x02B7, "Razer Blade 16 (2024)", Verified: false),
-        new RazerLaptopModel(0x02C6, "Razer Blade 16 (2025)", Verified: false),
+        new RazerLaptopModel(0x029D, "Razer Blade 14 (2023) Mercury", Verified: false, MinFanRpm: 2200),
+        new RazerLaptopModel(0x02B7, "Razer Blade 16 (2024)", Verified: false, MinFanRpm: 2200),
+        new RazerLaptopModel(0x02C6, "Razer Blade 16 (2025)", Verified: false, MinFanRpm: 2200),
 
         // Reported directly by a user from their own Device Manager's
         // Hardware Ids, not from a published table. Same caveat as above.
         new RazerLaptopModel(0x0255, "Razer Blade 15 Base (2020)", Verified: false),
+
+        // Reported by the owner of this model, who also runs razer-control-win's
+        // daemon on it. That daemon sends the same command classes (performance,
+        // fans, battery, lighting) to this product id. Same caveat as above.
+        new RazerLaptopModel(0x028C, "Razer Blade 14 (2022)", Verified: false),
     ];
 }

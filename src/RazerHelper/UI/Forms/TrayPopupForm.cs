@@ -28,6 +28,9 @@ public sealed class TrayPopupForm : Form
     }
 
     private static int HeaderRowHeight => S(34);
+    // Taller while the razer daemon On / Off pair is shown: its label sits above its buttons.
+    private static int HeaderWithDaemonRowHeight => S(58);
+    private static int DaemonColumnWidth => S(132);
     private static int DisplayRowHeight => S(74);
     private static int BatteryRowHeight => S(104);
     private static int FooterRowHeight => S(24);
@@ -43,6 +46,7 @@ public sealed class TrayPopupForm : Form
     private int _modalDepth;
     private bool _customRowShown;
     private bool _servicesRowShown;
+    private bool _daemonShown;
     private readonly SettingsService _settingsService;
     // One EC connection shared by every service that talks to the hardware.
     private readonly IRazerTransport _transport;
@@ -55,6 +59,7 @@ public sealed class TrayPopupForm : Form
     private readonly FanSection _fanSection;
     private readonly PerformanceSection _performanceSection;
     private readonly ServicesSection _servicesSection;
+    private readonly DaemonSection _daemonSection;
     private readonly DgpuFreeUpCoordinator _dgpuCoordinator;
     private readonly FactoryReset _factoryReset;
     private readonly SynchronizationContext _uiContext;
@@ -62,7 +67,9 @@ public sealed class TrayPopupForm : Form
     private readonly ToolTip _toolTip = new();
     private readonly GlobalHotkey _hotkey = new();
     private TableLayoutPanel _content = null!;
+    private TableLayoutPanel _headerLayout = null!;
     private AppSettings _settings;
+    private FanRpmRange _fanRange = FanRpmRange.Default;
 
     /// <summary>The real app: talks to the actual laptop, Windows services and user profile.</summary>
     public TrayPopupForm()
@@ -76,7 +83,8 @@ public sealed class TrayPopupForm : Form
             loginEntries: new RunKeyLoginEntries(),
             razerApps: new WindowsRazerApps(),
             gpuTemperature: new D3dkmtGpuTemperature(),
-            fullscreenDetector: new WindowsFullscreenDetector())
+            fullscreenDetector: new WindowsFullscreenDetector(),
+            daemonControl: new WindowsRazerDaemonControl())
     {
     }
 
@@ -96,7 +104,8 @@ public sealed class TrayPopupForm : Form
         ILoginEntries? loginEntries = null,
         IRazerApps? razerApps = null,
         IGpuTemperatureSource? gpuTemperature = null,
-        IFullscreenDetector? fullscreenDetector = null)
+        IFullscreenDetector? fullscreenDetector = null,
+        IRazerDaemonControl? daemonControl = null)
     {
         _transport = transport;
         _powerSource = powerSource;
@@ -113,12 +122,19 @@ public sealed class TrayPopupForm : Form
         // The CPU-side temperature comes from the laptop's controller, on the
         // same channel as the fan speeds. With no GPU to ask (tests, previews)
         // no GPU temperature is shown.
+        // The fan buttons can also hold the fans at a speed (Max, Temp Target), which
+        // needs the model's slowest and fastest hand-held speeds. They are only known
+        // once the laptop has been looked for, so they are asked for each time.
         _fanSection = new FanSection(
             new FanTelemetryService(_transport),
+            new FanControlService(_transport, () => _fanRange),
             _powerSource,
             new EcTemperatureService(_transport),
-            gpuTemperature ?? new NoGpuTemperature());
+            gpuTemperature ?? new NoGpuTemperature(),
+            _settings.FanTargetCelsius);
         _fanSection.MaxFanRequested += FanSection_MaxFanRequested;
+        _fanSection.StatusChanged += Section_StatusChanged;
+        _fanSection.TargetChanged += FanSection_TargetChanged;
 
         _performanceSection = new PerformanceSection(
             new PerformanceService(_transport),
@@ -164,6 +180,12 @@ public sealed class TrayPopupForm : Form
         _servicesSection.ModalStateChanged += ServicesSection_ModalStateChanged;
         _servicesSection.StatusChanged += Section_StatusChanged;
 
+        // The razer daemon On / Off pair in the header. Left out (tests, previews) it never appears.
+        _daemonSection = new DaemonSection(daemonControl ?? new NoRazerDaemonControl());
+        _daemonSection.InstalledChanged += DaemonSection_InstalledChanged;
+        _daemonSection.ModalStateChanged += ServicesSection_ModalStateChanged;
+        _daemonSection.StatusChanged += Section_StatusChanged;
+
         // Off unless the user turned it on. Reads the settings at the moment
         // it runs, so a change to the never-close list applies at once.
         var closer = new DgpuAppCloser(processControl ?? new WindowsProcessControl());
@@ -193,6 +215,7 @@ public sealed class TrayPopupForm : Form
         _ = _batterySection.RestoreAsync();
         _ = _performanceSection.RestoreAsync();
         _ = _servicesSection.RefreshAsync();
+        _ = _daemonSection.RefreshAsync();
 
         Deactivate += (_, _) => BeginInvoke(HideWhenInactive);
 
@@ -290,7 +313,7 @@ public sealed class TrayPopupForm : Form
         };
 
         // Every row is a fixed height, so the popup's height is their sum.
-        // The Performance and Razer services rows change height; see
+        // The Header, Performance and Razer services rows change height; see
         // ResizeToFitRows.
         _content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
@@ -334,6 +357,7 @@ public sealed class TrayPopupForm : Form
         RowStyleOf(Row.Performance).Height = PerformanceBaseRowHeight +
             (_customRowShown ? CustomBoostRow.RowHeight : 0);
         RowStyleOf(Row.Services).Height = _servicesRowShown ? ServicesSection.RowHeight : 0;
+        RowStyleOf(Row.Header).Height = _daemonShown ? HeaderWithDaemonRowHeight : HeaderRowHeight;
 
         var contentHeight = _content.Padding.Vertical +
             _content.RowStyles.Cast<RowStyle>().Sum(row => row.Height);
@@ -349,21 +373,27 @@ public sealed class TrayPopupForm : Form
     // row, so this is where status text lives.
     private Control CreateAppHeader()
     {
-        var header = new TableLayoutPanel
+        _headerLayout = new TableLayoutPanel
         {
             BackColor = BackgroundColor,
-            ColumnCount = 2,
+            ColumnCount = 3,
             Dock = DockStyle.Fill,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
-            RowCount = 1
+            RowCount = 2
         };
 
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        header.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        // Name, then the razer daemon On / Off pair (no width until a daemon
+        // is found), then the status text with whatever room is left. The top
+        // row is the height the header always had; the second only exists to
+        // give the daemon buttons room below the name and the status text.
+        _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0F));
+        _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        _headerLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, HeaderRowHeight));
+        _headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-        header.Controls.Add(new Label
+        _headerLayout.Controls.Add(new Label
         {
             AutoSize = true,
             Dock = DockStyle.Fill,
@@ -372,9 +402,11 @@ public sealed class TrayPopupForm : Form
             Text = "RazerHelper",
             TextAlign = ContentAlignment.MiddleLeft
         }, 0, 0);
-        header.Controls.Add(_headerStatusLabel, 1, 0);
+        _headerLayout.Controls.Add(_daemonSection, 1, 0);
+        _headerLayout.SetRowSpan(_daemonSection, 2);
+        _headerLayout.Controls.Add(_headerStatusLabel, 2, 0);
 
-        return header;
+        return _headerLayout;
     }
 
     // The user asked to close the apps keeping the dedicated GPU awake. The
@@ -519,6 +551,7 @@ public sealed class TrayPopupForm : Form
         if (new DeviceSupportService().TryGetPresentModel(out var model))
         {
             _modelText = model.Name;
+            _fanRange = model.FanRange;
             ShowStatus(new SectionStatus(model.Name));
 
             AppLog.Info(model.Verified
@@ -562,9 +595,13 @@ public sealed class TrayPopupForm : Form
     private void ServicesSection_LoginEntriesRecorded(object? sender, Dictionary<string, string> approvals) =>
         SaveSettings(_settings with { RazerLoginApprovals = approvals.Count > 0 ? approvals : null });
 
-    // The fan buttons ask, the performance section does it (it owns the EC conversation).
+    // In Custom mode the fan buttons ask, the performance section does it (it owns the
+    // laptop's own max-fan flag). Everywhere else the fan section holds the fans itself.
     private void FanSection_MaxFanRequested(object? sender, bool enabled) =>
         _ = _performanceSection.SetMaxFanAsync(enabled);
+
+    private void FanSection_TargetChanged(object? sender, int celsius) =>
+        SaveSettings(_settings with { FanTargetCelsius = celsius });
 
     // Max fan speed only exists in Custom mode, so the fan buttons follow the performance state.
     private void PerformanceSection_StateChanged(object? sender, PerformanceState state) =>
@@ -573,6 +610,13 @@ public sealed class TrayPopupForm : Form
     private void PerformanceSection_CustomRowVisibilityChanged(object? sender, bool shown)
     {
         _customRowShown = shown;
+        ResizeToFitRows();
+    }
+
+    private void DaemonSection_InstalledChanged(object? sender, bool installed)
+    {
+        _daemonShown = installed;
+        _headerLayout.ColumnStyles[1].Width = installed ? DaemonColumnWidth : 0;
         ResizeToFitRows();
     }
 
@@ -728,6 +772,9 @@ public sealed class TrayPopupForm : Form
 
             // Razer's services can be started or stopped from outside the app.
             _ = _servicesSection.RefreshAsync();
+
+            // So can razer-daemon.
+            _ = _daemonSection.RefreshAsync();
         }
         else
             _fanSection.StopPolling();

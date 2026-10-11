@@ -18,6 +18,13 @@ internal static class RazerCommands
     public const ushort GetBoost = 0x0D87;
     public const ushort GetActualFanRpm = 0x0D88;
 
+    // Manual fan speed: [0, zone, rpm / 100] for zone 1 (CPU) and 2 (GPU). It only
+    // takes effect for a zone whose performance mode was written with the fan byte
+    // set to 1 (see PerformanceService / FanControlService). The id and layout come
+    // from razer-control-win's daemon, which uses them on a Blade 14 (2022); they
+    // have not been checked on any other model by this app.
+    public const ushort SetFanRpm = 0x0D01;
+
     // Class 0x0D: temperatures. Found by a read-only scan of a Blade 16 (2023)'s
     // controller; it is in neither razer-ctl nor OpenRazer. The reply is
     // [2, cpu, gpu] in whole degrees Celsius. The CPU byte follows CPU heat but

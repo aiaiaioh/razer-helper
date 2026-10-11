@@ -19,6 +19,12 @@ internal sealed class FakeEc : IRazerTransport
     public byte CpuBoost;
     public byte GpuBoost;
     public readonly byte[] FanRpmHundreds = [0, 0];
+
+    /// <summary>The fan byte of each zone's last mode write: 0 the EC runs the fan, 1 it is held at <see cref="FanSetpointHundreds"/>.</summary>
+    public readonly byte[] FanManual = [0, 0];
+
+    /// <summary>The speed last written to each zone with the manual fan command, in hundreds of RPM.</summary>
+    public readonly byte[] FanSetpointHundreds = [0, 0];
     public byte BatteryLimitByte = 0x50;
 
     /// <summary>What the controller's temperature register reports, in whole degrees.</summary>
@@ -68,6 +74,7 @@ internal sealed class FakeEc : IRazerTransport
         {
             RazerCommands.GetPerformanceMode => Respond(0x00, args[1], ZoneMode[args[1] - 1], 0x00),
             RazerCommands.SetPerformanceMode => SetMode(args),
+            RazerCommands.SetFanRpm => SetFanRpm(args),
             RazerCommands.GetBoost => Respond(0x00, args[1], args[1] == 1 ? CpuBoost : GpuBoost),
             RazerCommands.SetBoost => SetBoost(args),
             RazerCommands.GetMaxFan => Respond((byte)(MaxFan ? 2 : 0), 0x00),
@@ -103,8 +110,18 @@ internal sealed class FakeEc : IRazerTransport
         if (!IgnoreModeWrites)
         {
             ZoneMode[args[1] - 1] = args[2];
+            FanManual[args[1] - 1] = args[3];
             ClearMaxFanOutsideCustom();
         }
+
+        return Echo(args);
+    }
+
+    private byte[] SetFanRpm(byte[] args)
+    {
+        // args: [0, zone, rpm / 100]. Only honoured for a zone put in manual fan control.
+        if (FanManual[args[1] - 1] == 1)
+            FanSetpointHundreds[args[1] - 1] = args[2];
 
         return Echo(args);
     }

@@ -34,4 +34,7 @@ internal sealed record AppSettings(
     // How much bigger than the base design the window is drawn (1 = base size).
     // Null picks a size from Windows' display scaling. Edited by hand in
     // settings.json, for example 1.5; applies the next time the app starts.
-    double? WindowScale = null);
+    double? WindowScale = null,
+    // The Temp Target fan setting, in degrees Celsius. Only the number is kept:
+    // the app always starts with the fans on Auto, whatever they were set to.
+    int? FanTargetCelsius = null);
