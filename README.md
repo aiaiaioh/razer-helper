@@ -1,158 +1,130 @@
 <p align="center">
-  <img src="src/RazerHelper/Assets/logo.png" width="128" alt="RazerHelper logo: a green disc with a black stylized Y-shaped mark inside a partial ring">
+  <img src="docs/icon.png" width="130" alt="RazerHelper logo: a green tribal-pattern feather">
 </p>
 
 <h1 align="center">RazerHelper</h1>
 
-A lightweight, open-source replacement for Razer Synapse on Razer Blade laptops.
+<p align="center">A small, open-source replacement for Razer Synapse on Razer Blade laptops.<br>
+Lives in the system tray. No account, no cloud, no driver.</p>
 
-It lives in the system tray, talks to the laptop's controller directly, and needs no account, no cloud and no background services of its own.
+<p align="center">
+  <img src="docs/screenshots/main-window.png" width="440" alt="The RazerHelper window on a Razer Blade 14 (2022)">
+</p>
 
-> **Status: v1.0.** Built and tested on a **Razer Blade 16 (2023)** running Windows 11. A few other Blade models are recognized from their product ID and will run the same commands, but are not independently verified; see [Requirements](#requirements). This project is not affiliated with Razer.
+> **A fork** of [Paulrod20/razer-helper](https://github.com/Paulrod20/razer-helper) (MIT) with extras for the **Razer Blade 14 (2022)**: a razer daemon On/Off switch, Max fan speed in any mode, and a Temp Target fan mode. Not affiliated with Razer. **Use at your own risk** ([disclaimer](#disclaimer)).
 
-## What it does today
+## Features
 
-- **Performance modes:** Balanced, Silent and Custom, with CPU and GPU boost levels in Custom.
-- **Power profiles:** separate settings for plugged in and on battery, applied automatically when you plug or unplug. On battery only Balanced is offered, as in Synapse.
-- **Battery charge limit:** 60%, 80% or 100% (no limit).
-- **Display refresh rate:** 60 Hz, 120 Hz, or Auto, which follows the power source.
-- **Temperatures:** CPU and GPU, shown at the top to the left of the power source, only while the window is open. The GPU reading comes from the graphics driver (the same source Task Manager uses). The CPU reading comes from the laptop's own controller. Compared with MSI Afterburner under load on the developer's laptop it was very close, but it updates more slowly, so Afterburner's number moves faster (hover it for a reminder). It is not read from the CPU die itself. The GPU is read every 2 seconds and the CPU every 4, and nothing is read while the window is closed.
-- **Fans:** live CPU and GPU fan speed, and **Max** fan speed (both fans flat out). Max is a one-off that needs Custom mode and AC power; **Auto** turns it off, and it clears by itself when you leave Custom.
-- **Lighting:** the keyboard backlight (Off, Static green, Spectrum, Wave, Breathing) and the Razer logo on the lid (Off, On, Breathing), each with a brightness slider. Always available, on battery or plugged in.
-- **Razer background services:** shows how many are running, and can stop and restore them (see below).
-- **Settings** (link at the bottom right): start at login, switch profile automatically when you plug in or unplug, hide the window when you click away, keep it always on top, close apps using the dedicated GPU when you unplug (see below), shortcuts to Razer's drivers and support page and to the log folder, and **Reset to defaults**.
+- **Performance modes:** Balanced, Silent, Custom (with CPU/GPU boost), with separate plugged-in and battery profiles.
+- **Fans:** live CPU and GPU RPM, plus **Auto**, **Max** and **Temp Target** (see below).
+- **Display:** 60 Hz, 120 Hz, or Auto (follows the power source).
+- **Battery charge limit:** 60 to 100 %.
+- **Lighting:** keyboard effects and brightness, and the lid logo.
+- **Razer daemon On/Off:** start and stop `razer-daemon.exe` (see below).
+- **Free up GPU:** closes apps keeping the dedicated GPU awake, after asking you.
+- **Razer services:** stop and restore Razer's background software with one button.
+- **Fn+Del** shows or hides the window from any program, even a game.
 
-**Reset to defaults** (in Settings) puts the app back the way it was the first time you opened it, if something ever seems stuck. After you confirm, it clears your saved settings, turns off Start at login, sets the laptop to Balanced mode with no battery charge limit, and restarts. It does not touch Razer's background services (the record of what they were set to is kept, so Start can still restore them) or anything else on your PC.
+<table>
+  <tr>
+    <td><img src="docs/screenshots/header-performance.png" alt="Performance modes"></td>
+    <td><img src="docs/screenshots/display.png" alt="Display refresh rate"><br><img src="docs/screenshots/battery.png" alt="Battery charge limit"></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/lighting.png" alt="Lighting"></td>
+  </tr>
+</table>
 
-## Open it from anywhere
+## New in this fork
 
-Press **Fn+Del** in any program, even a game, to bring the window to the front, and press it again to hide it. On the Blade, Fn+Del sends the Insert key, so that is what the app listens for; it is always on and needs no setting.
+### Razer daemon On / Off
 
-- It costs nothing when unused: Windows hands the key press to the app, so nothing watches the keyboard.
-- While RazerHelper runs, Insert no longer toggles overwrite mode in editors. If another program already uses the key, the window says so at the top.
-- **Always on top** (in Settings) keeps the window above other windows, including games in a borderless window. A game in true exclusive fullscreen can still cover it, and opening the window may make such a game minimize, because the window takes focus. That is how Windows treats exclusive fullscreen; borderless and windowed games are not affected.
+<img align="right" src="docs/screenshots/daemon-buttons.png" width="230" alt="The razer daemon On and Off buttons">
 
-## Light on resources
+If you run `razer-daemon.exe` from [Razer Blade Control](https://github.com/aiaiaioh/RazerBladeControl), two buttons at the top of the window start and stop it. The lit button shows whether it is running.
 
-It sits in the tray and does nothing until you open it. Its only timer, which reads fan speeds and temperatures, runs only while the window is open and stops when it is hidden, so the laptop is not polled while the window is closed. It only acts on events, such as plugging in or unplugging. Results are reused so the laptop's controller is not asked twice for the same thing. Measured on the developer's machine, the installed app uses about 18 MB of private memory (about 73 MB of working set, which includes memory shared with the .NET runtime) and 14 threads. It uses one small dependency (for Windows services) and installs no driver.
+- **Off** asks the daemon to save and exit. **On** runs its `RazerDaemon` scheduled task. Neither needs an admin prompt. With no task, **On** starts the exe directly and Windows asks for approval.
+- The buttons only appear if the daemon is installed or running.
 
-## Not yet
+<br clear="right">
 
-Manual fan control, the CPU overclock toggle, independent verification on any Blade but the one in [Requirements](#requirements), and Razer mice, keyboards and headsets.
+### Fan modes
 
-**The CPU die temperature is not shown.** Windows does not expose it without a kernel driver (its own thermal zones on this laptop are fixed values that do not move under load), and razer-helper deliberately installs no driver. The CPU figure above comes from a sensor in the laptop's controller instead. It was found by scanning the controller's read-only commands on a Blade 16 (2023), is not documented anywhere, and other Blade models may not have it (the app then simply shows no CPU temperature).
+<p align="center">
+  <img src="docs/screenshots/fans.png" width="620" alt="Auto, Max and Temp Target">
+</p>
 
-**Choosing a keyboard color and per-key lighting are not available.** On the Blade 16 the laptop only honors a chosen color in a "driver mode" that also switches off the Fn media keys (volume, screen and keyboard brightness), and razer-helper does not trade those away. In normal mode a static effect always shows Razer green, which is why the option is called **Static green**. Effects the laptop does not run on its own, such as Wheel, are not offered either. The built-in effects listed above are the ones the laptop runs by itself.
+Only the active mode is green.
 
-## Closing apps that use the dedicated GPU
+| Mode | What it does |
+| --- | --- |
+| **Auto** | The laptop runs the fans. |
+| **Max** | Both fans at full speed (5000 RPM on the Blade 14 (2022)), in any performance mode, plugged in or on battery. |
+| **Temp Target** | Steers the fans to hold the **hotter of the CPU and GPU** at your chosen temperature. |
 
-An app that keeps the dedicated GPU awake drains the battery. There are two ways to deal with that:
+**Temp Target:** click the box to turn it on, and use the arrows to change the target by 1 °C (60 to 90 °C, default 85 °C).
 
-- **Free up GPU** (link at the bottom of the window) lists those apps and asks whether to close them. Use it whenever you like, plugged in or not, for example after unplugging an external monitor.
-- **Close apps using the dedicated GPU when unplugged** (in Settings, off by default) does the same automatically when you unplug the charger.
+- Well under the target the fans stay on Auto. Within 2 °C of it, the app takes over at the slowest speed it can hold (3500 RPM here), speeds up the further over you go, and slows down gradually when under. At the slowest speed and 5 °C under, it hands back to Auto.
+- 5 °C over the target, or **92 °C at any target**, goes flat out.
+- It adjusts every 3 seconds, **even with the window closed**, and only while Temp Target is on.
+- Not available in Custom mode, where the laptop runs its own fans.
+- The CPU reading comes from a sensor in the laptop's controller. It is slower than, and reads lower than, tools that read the CPU die.
 
-It is deliberately cautious:
-
-- **It always asks first**, and the default answer is "Not now". After an unplug, if you plug the charger back in, the question goes away.
-- **It never force-closes anything.** It asks each app's main window to close, the same as clicking the X, so an app with unsaved work can still ask you to save.
-- **It does nothing while an external display is connected.** On this laptop the external ports are wired to the dedicated GPU, so it stays on regardless of which apps are closed.
-- **It leaves alone** Windows itself, graphics drivers, Razer software, this app, other users' processes, background helpers with no window, and terminals, editors and the Claude desktop app.
-- **Your own never-close list:** add program names to `NeverCloseApps` in `%LOCALAPPDATA%\RazerHelper\settings.json`, for example `"NeverCloseApps": ["blender", "obs64"]`. Names are the process name without `.exe`.
-
-## Window size
-
-The window is drawn a little larger on high-resolution screens so it stays easy to read: it grows a quarter as fast as Windows' own display scaling (for example about 30% larger at 225% scaling, and unchanged at 100%). To choose your own size, add `"WindowScale"` to `%LOCALAPPDATA%\RazerHelper\settings.json` (for example `"WindowScale": 1.5`; allowed range 0.75 to 3) and restart the app. Remove it to go back to the automatic size.
-
-## Requirements
-
-- Windows 11
-- A supported Razer Blade, found by USB product ID:
-
-  | Model | USB product ID | Verified |
-  | --- | --- | --- |
-  | Razer Blade 16 (2023) | `0x029F` | Yes, on the developer's own unit |
-  | Razer Blade 15 (2022) | `0x028A` | No — community-reported ID only |
-  | Razer Blade 14 (2023) Mercury | `0x029D` | No — community-reported ID only |
-  | Razer Blade 16 (2024) | `0x02B7` | No — community-reported ID only |
-  | Razer Blade 16 (2025) | `0x02C6` | No — community-reported ID only |
-  | Razer Blade 15 Base (2020) | `0x0255` | No — reported by a user, from their own Device Manager |
-
-  An unverified model runs the exact commands documented in [Credits](#credits); one the firmware does not support simply fails instead of doing something unexpected. If you have one of these and something looks wrong, please [open an issue](https://github.com/Paulrod20/razer-helper/issues) — the log (Settings > "Open log folder") says which model was detected.
-- The [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (choose ".NET Desktop Runtime" for x64). The installer checks for it and will not install without it.
+**Safety:** if it loses the temperature readings or cannot adjust the fans, it hands them back to Auto and says why in red at the top of the window. Changing performance mode or quitting the app also returns them to Auto, and the app always starts on Auto. If it crashes or is killed, the fans stay at their last speed until you restart it or change performance mode.
 
 ## Install
 
-1. Install the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) if you do not have it.
-2. Download `RazerHelper-Setup-<version>.exe` from the [Releases page](https://github.com/Paulrod20/razer-helper/releases) and run it. It installs for your user only and does not ask for administrator rights.
-3. Start RazerHelper from the Start menu. It lives in the tray; click the icon, or press **Fn+Del** from any program, to open it.
+Needs **Windows 11** and the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (".NET Desktop Runtime", x64). Get the files from the [Releases](../../releases) page:
 
-The installer and the app are not code-signed, so Windows SmartScreen may say "Windows protected your PC" (click **More info**, then **Run anyway**), and Windows will show "Unknown publisher" when the app asks for administrator approval. To remove RazerHelper, uninstall it from Windows Settings > Apps; that also removes its start-at-login entry. Your settings stay in `%LOCALAPPDATA%\RazerHelper` until you delete that folder.
+- **Installer:** `RazerHelper-Setup-<version>.exe`. Installs for your user only, no admin rights. Start it from the Start menu, then use the tray icon or **Fn+Del**.
+- **Portable:** `RazerHelper-<version>-portable.zip`. Unzip and run `RazerHelper.exe`. The `-selfcontained` zip includes .NET.
+
+The app is not code-signed, so SmartScreen may warn: click **More info**, then **Run anyway**. Settings live in `%LOCALAPPDATA%\RazerHelper`.
+
+## Supported laptops
+
+| Model | USB product ID | Status |
+| --- | --- | --- |
+| Razer Blade 16 (2023) | `0x029F` | Verified by the original author |
+| **Razer Blade 14 (2022)** | `0x028C` | **Added in this fork; reported working by its owner, not independently verified** |
+| Razer Blade 15 (2022), 14 (2023), 16 (2024), 16 (2025), 15 Base (2020) | `0x028A`, `0x029D`, `0x02B7`, `0x02C6`, `0x0255` | Community-reported IDs only |
+
+Unverified models run the same commands as the verified one; an unsupported command just fails. If something looks wrong, open an issue with the log (Settings > "Open log folder"). Max and Temp Target use a manual fan command taken from the Razer Blade Control daemon, which uses it on the Blade 14 (2022); it hasn't been checked on other models. Per-model fan speed limits come from that project's device table (the 2024 and 2025 Blade 16 use the 2023 figures as a guess).
 
 ## Build from source
 
-To run from source:
+Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```
-git clone https://github.com/Paulrod20/razer-helper.git
+git clone https://github.com/<your-username>/razer-helper.git
 cd razer-helper/src/RazerHelper
 dotnet run
 ```
 
-To run the tests (they use a fake laptop, so no hardware is needed):
+Tests use a fake laptop (`cd src/RazerHelper.Tests`, then `dotnet test`). To build the installer and portable zip, run `.\package.ps1 -Version 1.1.0` from the repo root in PowerShell (needs [Inno Setup](https://jrsoftware.org/isinfo.php) 6 or 7; add `-SelfContained` to bundle .NET in the zip; if Windows blocks the script, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` first). Output goes to `dist\`.
 
-```
-cd src/RazerHelper.Tests
-dotnet test
-```
+## Razer Synapse
 
-To build the installer yourself (needs the .NET 10 SDK and [Inno Setup 6](https://jrsoftware.org/isinfo.php)):
-
-```
-installer\build.ps1
-```
-
-It publishes the app as a single exe and writes `dist\RazerHelper-Setup-<version>.exe`.
-
-## Razer Synapse and Razer's background software
-
-Razer's software runs several background services that use memory and can contend with this app for the laptop's controller. razer-helper gives you two ways to deal with that.
-
-**Stop them from the app.** When Razer's software is installed, the bottom of the window shows `Razer Software Running: N` (its services plus its own programs, such as Synapse) with a **Stop** button. Hover the number to see exactly what it counts (services, programs, and whether Razer starts at login) and when it was last checked.
-
-- Stop asks Windows to stop every Razer service and turns off their automatic startup, so they stay off after a restart. Windows asks for administrator approval, but only when there are services left to stop.
-- Stop also **turns off Razer's start-at-login entry**, the same as switching it off in Task Manager's Startup tab. Razer's own entry is left in place; only its on/off switch changes.
-- Stop **asks Razer's running programs to close**, the same as clicking their X. Nothing is force-closed. Synapse lives in the tray and may ignore the request; quit it from its tray icon.
-- **Start** restores each service to exactly the startup type it had before, and puts the login entry's switch back exactly as it was.
-- Nothing runs automatically. The app only changes these when you press the button, and it never deletes or uninstalls anything. This app's own start-at-login entry is never touched.
-
-**For the cleanest experience, uninstall Razer Synapse.** Removing it takes away Razer's background services, its startup entry and its helper processes in one step, instead of switching them off. It is optional.
-
-Before you do:
-
-- Synapse is also how Razer **mice, keyboards and headsets** are configured (button remapping, macros, lighting effects, DPI). Those features go with it.
-- razer-helper controls the laptop directly and does not use Synapse. It has so far been used with Synapse installed, **not yet with Synapse fully uninstalled**. If you try it, create a Windows restore point first, and please report how it went.
-- Leave Razer's drivers alone. They are part of how Windows talks to your keyboard hardware, not background apps.
+When Razer's software is installed, a row at the bottom shows how many of its services are running, with **Stop** (stops the services, turns off their startup, asks its programs to close) and **Start** (restores everything exactly as it was). Nothing is force-closed or deleted. Uninstalling Synapse is the cleanest option but also removes setup for Razer mice, keyboards and headsets, and this app has only been tested with Synapse installed.
 
 ## How it works
 
-The app sends commands to the laptop's embedded controller over a standard Windows HID interface, found and opened with Windows' own device APIs (no third-party HID library). The command set was worked out by the community; see the credits below. Writes are checked: the controller echoes what it accepted, and the app treats anything else as a failure.
+Commands go to the laptop's embedded controller over a standard Windows HID interface, with no third-party HID library. Writes are checked: the controller echoes what it accepted, and anything else counts as a failure. The daemon buttons talk to `razer-daemon.exe` on its local port (`127.0.0.1:29494`).
 
 ## Credits
 
-- [razer-ctl](https://github.com/tdakhran/razer-ctl) by tdakhran, and its actively maintained continuation [sqmagellan/razer-ctl](https://github.com/sqmagellan/razer-ctl) (MIT): the documented Blade command set this project builds on.
-- [OpenRazer](https://github.com/openrazer/openrazer): the USB protocol reverse-engineering work behind all of the above.
-- [G-Helper](https://github.com/seerge/g-helper): inspiration for the approach to power profiles and service handling. No G-Helper code is used.
-- App icon and logo by [jdsgnrinfo](https://github.com/jdsgnrinfo).
+- [Paulrod20/razer-helper](https://github.com/Paulrod20/razer-helper) by Paul Rodriguez (MIT): the original app. Its tray and exe icon is by [jdsgnrinfo](https://github.com/jdsgnrinfo).
+- [razer-control-win](https://github.com/Kraven1109/razer-control-win) by Kraven1109 and its Blade 14 fork [Razer Blade Control](https://github.com/aiaiaioh/RazerBladeControl): the daemon, the manual fan command and the fan limits.
+- [razer-ctl](https://github.com/tdakhran/razer-ctl) by tdakhran and [sqmagellan/razer-ctl](https://github.com/sqmagellan/razer-ctl) (MIT): the documented Blade command set.
+- [OpenRazer](https://github.com/openrazer/openrazer) and [G-Helper](https://github.com/seerge/g-helper): the protocol work and inspiration. No G-Helper code is used.
 
 ## Disclaimer
 
-This app changes how your laptop behaves: it writes to the laptop's embedded controller, and it can stop and disable Windows services. It only sends commands that were verified on a Blade 16 (2023), but **you use it at your own risk.**
+This app writes to the laptop's embedded controller, **can hold the fans at a fixed speed**, and can stop Windows services. The original commands were verified on a Blade 16 (2023); the Blade 14 (2022) support and manual fan control here are less tested. **You use it at your own risk.**
 
-This software is provided "as is", without warranty of any kind. **The author is not responsible for anything that breaks, stops working, or is lost as a result of using it**, including damage to your laptop, changes to performance, battery or thermal behavior, problems with Razer software or Razer devices, or data loss. This is the same no-warranty and no-liability position the [MIT license](LICENSE) already sets out; this section is a plain-language reminder of it. If that isn't acceptable to you, please don't use the app.
+It is provided "as is", without warranty. **The authors are not responsible for anything that breaks, stops working or is lost as a result of using it**, including damage to your laptop, changes to performance, battery or thermal behavior (including overheating or fan noise), problems with Razer software or devices, or data loss. This is a plain-language reminder of the no-warranty terms in the [MIT license](LICENSE). If that isn't acceptable, please don't use the app.
 
-## Trademarks
-
-Razer, the Razer logo, Razer Synapse and Blade are trademarks of Razer Inc. They are used here only to say which laptops and software this project works with. RazerHelper is an independent project; it is not made, endorsed or supported by Razer, and its icon is not Razer's.
+Razer, the Razer logo, Razer Synapse and Blade are trademarks of Razer Inc., used only to say what this works with. RazerHelper is independent and is not made, endorsed or supported by Razer.
 
 ## License
 
